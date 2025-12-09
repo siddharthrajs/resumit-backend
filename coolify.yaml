@@ -1,0 +1,71 @@
+# Coolify Configuration for RenderCV Backend
+# This file documents the recommended Coolify settings
+# Import this or use as reference when setting up the application
+
+# Application Type: Docker
+# Build Pack: Dockerfile
+
+# Build Configuration
+build:
+  dockerfile: Dockerfile
+  context: .
+  target: production
+
+# Environment Variables
+# Set these in Coolify's environment variable section
+environment:
+  # Required for production
+  RENDERCV_CORS_ORIGINS: '["https://your-frontend-domain.com"]'
+  RENDERCV_DEBUG: "false"
+  
+  # Optional - defaults work well
+  # RENDERCV_PORT: "8000"
+  # RENDERCV_DEFAULT_THEME: "classic"
+  # RENDERCV_CLEANUP_AFTER_RENDER: "true"
+
+# Networking
+network:
+  port: 8000
+  # Enable HTTPS with automatic SSL
+  ssl: true
+
+# Health Check
+healthcheck:
+  path: /api/health
+  interval: 30
+  timeout: 10
+  retries: 3
+  start_period: 30
+
+# Resource Limits (adjust based on your VPS)
+resources:
+  # Recommended minimum for PDF generation
+  memory: 512Mi
+  cpu: 0.5
+  
+  # For high-traffic production
+  # memory: 1Gi
+  # cpu: 1
+
+# Persistent Storage (optional)
+# Only needed if you want to cache rendered files
+volumes: []
+  # - /tmp/rendercv_output:/tmp/rendercv_output
+
+# Deployment Strategy
+deployment:
+  strategy: rolling
+  replicas: 1
+  
+# Auto-scaling (if available on your plan)
+# autoscaling:
+#   min_replicas: 1
+#   max_replicas: 3
+#   target_cpu_utilization: 70
+
+# Logs
+logging:
+  driver: json-file
+  max_size: 10m
+  max_file: 3
+
