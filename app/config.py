@@ -17,7 +17,13 @@ class Settings(BaseSettings):
     port: int = 8000
     
     # CORS Settings
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://beta.resumit.tech",
+        "https://resumit.tech",
+        "https://www.resumit.tech",
+    ]
     cors_allow_credentials: bool = True
     cors_allow_methods: List[str] = ["*"]
     cors_allow_headers: List[str] = ["*"]
