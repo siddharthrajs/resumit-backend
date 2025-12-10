@@ -143,6 +143,40 @@ async def render_pdf(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/render/pdf/preview", tags=["Render"])
+async def render_pdf_preview(request: RenderRequest):
+    """
+    Render resume to PDF and return raw bytes for preview.
+
+    This endpoint is optimized for the PDF.js viewer on the frontend.
+    Returns raw PDF bytes with appropriate headers.
+
+    Request body:
+    - resumeData: The resume data matching the frontend format
+    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes)
+    - pageSize: Page size (a4 or letter)
+    """
+    try:
+        pdf_bytes, render_time = await rendercv_service.render_pdf(
+            request.resume_data,
+            request.theme,
+            request.page_size
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "X-Render-Time-Ms": str(render_time),
+                "Cache-Control": "no-cache",
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"PDF preview render failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/render/png", tags=["Render"])
 async def render_png(
     request: RenderRequest,
