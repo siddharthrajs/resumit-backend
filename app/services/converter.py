@@ -180,9 +180,13 @@ class ResumeConverter:
         entry: Dict[str, Any] = {
             "name": proj.name,
         }
-        
-        if proj.description:
-            entry["highlights"] = [proj.description]
+
+        # Prioritize explicit highlights, fall back to description
+        highlights: List[str] = []
+        if proj.highlights:
+            highlights.extend(proj.highlights)
+        elif proj.description:
+            highlights.append(proj.description)
         
         if proj.link:
             entry["url"] = proj.link
@@ -195,10 +199,10 @@ class ResumeConverter:
         # Add technologies as part of summary or highlights
         if proj.technologies:
             tech_str = ", ".join(proj.technologies)
-            if "highlights" in entry:
-                entry["highlights"].insert(0, f"Technologies: {tech_str}")
-            else:
-                entry["highlights"] = [f"Technologies: {tech_str}"]
+            highlights.insert(0, f"Technologies: {tech_str}")
+
+        if highlights:
+            entry["highlights"] = highlights
         
         return entry
     
@@ -314,39 +318,64 @@ class ResumeConverter:
         
         # Build sections
         sections: Dict[str, Any] = {}
-        
-        # Determine section order
-        section_order = resume_data.section_order or [
-            "summary", "experience", "education", "skills", "projects"
-        ]
-        
+        raw_sections = resume_data.rendercv_sections or {}
+
+        # Determine section order, prioritizing provided order, otherwise
+        # preserving the order from raw RenderCV sections, falling back to defaults.
+        section_order = (
+            resume_data.section_order
+            or list(raw_sections.keys())
+            or ["summary", "experience", "education", "skills", "projects"]
+        )
+
+        def add_section(key: str, value: Any):
+            """Insert section while preserving order and skipping empty values."""
+            if value is None:
+                return
+            sections[key] = value
+
         for section_key in section_order:
-            if section_key == "summary" and resume_data.summary:
+            if raw_sections and section_key in raw_sections:
+                add_section(section_key, raw_sections[section_key])
+            elif section_key == "summary" and resume_data.summary:
                 # Summary is a list of strings in RenderCV
-                sections["summary"] = [resume_data.summary]
+                add_section("summary", [resume_data.summary])
             elif section_key == "experience" and resume_data.experience:
-                sections["experience"] = [
-                    cls.convert_experience(exp) for exp in resume_data.experience
-                ]
+                add_section(
+                    "experience",
+                    [cls.convert_experience(exp) for exp in resume_data.experience],
+                )
             elif section_key == "education" and resume_data.education:
-                sections["education"] = [
-                    cls.convert_education(edu) for edu in resume_data.education
-                ]
+                add_section(
+                    "education",
+                    [cls.convert_education(edu) for edu in resume_data.education],
+                )
             elif section_key == "skills" and resume_data.skills:
-                sections["skills"] = cls.convert_skills(resume_data.skills)
+                add_section("skills", cls.convert_skills(resume_data.skills))
             elif section_key == "projects" and resume_data.projects:
-                sections["projects"] = [
-                    cls.convert_project(proj) for proj in resume_data.projects
-                ]
+                add_section(
+                    "projects",
+                    [cls.convert_project(proj) for proj in resume_data.projects],
+                )
+
+        # Append any remaining raw sections not explicitly ordered
+        for raw_key, raw_value in raw_sections.items():
+            if raw_key not in sections:
+                add_section(raw_key, raw_value)
         
         if sections:
             cv["sections"] = sections
         
+        # Map page sizes to RenderCV format
+        rendercv_page_size = page_size
+        if page_size == "letter":
+            rendercv_page_size = "us-letter"
+
         # Build design section
         design: Dict[str, Any] = {
             "theme": theme,
             "page": {
-                "size": page_size,
+                "size": rendercv_page_size,
             },
         }
         
@@ -366,4 +395,3 @@ class ResumeConverter:
         """
         yaml_str = cls.to_rendercv_yaml(resume_data, theme, page_size)
         return yaml.safe_load(yaml_str)
-

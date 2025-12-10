@@ -742,7 +742,13 @@ class ATSScorer:
         for proj in projects:
             if proj.technologies and len(proj.technologies) > 0:
                 projects_with_tech += 1
-            if proj.description and len(proj.description) > 20:
+            if any(
+                len(text) > 20
+                for text in (
+                    (proj.highlights or []) + ([proj.description] if proj.description else [])
+                )
+                if text
+            ):
                 projects_with_description += 1
             if proj.link:
                 projects_with_link += 1
@@ -1041,6 +1047,7 @@ class ATSScorer:
                 proj.name or "",
                 proj.description or "",
             ])
+            parts.extend(proj.highlights or [])
             parts.extend(proj.technologies or [])
 
         return " ".join(parts)

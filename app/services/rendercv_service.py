@@ -84,11 +84,11 @@ class RenderCVService:
     ) -> Tuple[bytes, float]:
         """
         Render resume data to PDF using RenderCV.
-        
+
         Args:
             resume_data: The resume data to render
-            theme: The theme to use (classic, sb2nov, moderncv, engineeringresumes)
-        
+            theme: The theme to use (classic, sb2nov, moderncv, engineeringresumes, engineeringclassic)
+
         Returns:
             Tuple of (PDF bytes, render time in milliseconds)
         """

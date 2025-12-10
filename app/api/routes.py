@@ -69,8 +69,8 @@ async def render_svg(request: RenderRequest):
     
     Request body:
     - resumeData: The resume data matching the frontend format
-    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes)
-    
+    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes, engineeringclassic)
+
     Returns:
     - success: Whether rendering succeeded
     - svgData: The SVG string
@@ -106,8 +106,8 @@ async def render_pdf(
     
     Request body:
     - resumeData: The resume data matching the frontend format
-    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes)
-    
+    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes, engineeringclassic)
+
     Query parameters:
     - download: If true, returns the PDF as a file download
     
@@ -160,7 +160,7 @@ async def render_pdf_preview(request: RenderRequest):
 
     Request body:
     - resumeData: The resume data matching the frontend format
-    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes)
+    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes, engineeringclassic)
     - pageSize: Page size (a4 or letter)
     """
     try:

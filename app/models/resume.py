@@ -1,6 +1,6 @@
 """Resume data models matching the frontend structure."""
 from datetime import datetime
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Any, Dict
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -75,6 +75,7 @@ class Project(BaseModel):
     id: Optional[str] = Field(None, description="Unique identifier")
     name: str = Field(..., min_length=1, description="Project name")
     description: Optional[str] = Field(None, description="Project description")
+    highlights: List[str] = Field(default_factory=list, description="Bullet points/achievements")
     technologies: List[str] = Field(default_factory=list, description="Technologies used")
     link: Optional[str] = Field(None, description="Project URL")
     start_date: Optional[str] = Field(None, alias="startDate", description="Start date")
@@ -82,6 +83,14 @@ class Project(BaseModel):
 
     class Config:
         populate_by_name = True
+
+    @field_validator("highlights", mode="before")
+    @classmethod
+    def filter_empty_highlights(cls, v):
+        """Filter out empty strings from highlights list."""
+        if isinstance(v, list):
+            return [item for item in v if item and str(item).strip()]
+        return v
 
 
 class ResumeData(BaseModel):
@@ -92,6 +101,11 @@ class ResumeData(BaseModel):
     education: List[Education] = Field(default_factory=list)
     skills: List[Skill] = Field(default_factory=list)
     projects: List[Project] = Field(default_factory=list)
+    rendercv_sections: Optional[Dict[str, Any]] = Field(
+        None,
+        alias="rendercvSections",
+        description="Raw RenderCV sections (preserves custom sections and ordering)"
+    )
     section_order: Optional[List[str]] = Field(
         None, 
         alias="sectionOrder",
@@ -103,7 +117,7 @@ class ResumeData(BaseModel):
 
 
 # Available themes
-ThemeType = Literal["classic", "sb2nov", "moderncv", "engineeringresumes"]
+ThemeType = Literal["classic", "sb2nov", "moderncv", "engineeringresumes", "engineeringclassic"]
 
 
 class RenderRequest(BaseModel):
@@ -115,7 +129,7 @@ class RenderRequest(BaseModel):
         alias="outputFormat",
         description="Output format"
     )
-    page_size: Literal["a4", "letter"] = Field("a4", alias="pageSize")
+    page_size: Literal["a4", "a5", "us-letter", "us-legal", "letter"] = Field("a4", alias="pageSize")
     
     class Config:
         populate_by_name = True
@@ -246,4 +260,3 @@ class ATSScoreResponse(BaseModel):
 
     class Config:
         populate_by_name = True
-
