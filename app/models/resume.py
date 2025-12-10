@@ -152,7 +152,98 @@ class HealthResponse(BaseModel):
     version: str
     timestamp: datetime
     rendercv_available: bool = Field(alias="rendercvAvailable")
-    
+
+    class Config:
+        populate_by_name = True
+
+
+# ============================================
+# ATS Score Analysis Models
+# ============================================
+
+
+class ATSScoreRequest(BaseModel):
+    """Request model for ATS score analysis."""
+    resume_data: ResumeData = Field(..., alias="resumeData")
+    job_description: Optional[str] = Field(
+        None,
+        alias="jobDescription",
+        description="Optional job description for matching analysis"
+    )
+
+    class Config:
+        populate_by_name = True
+
+
+class SectionScoreResponse(BaseModel):
+    """Score details for a specific resume section."""
+    name: str
+    score: int = Field(..., ge=0, le=100)
+    weight: float
+    issues: List[str] = Field(default_factory=list)
+    suggestions: List[str] = Field(default_factory=list)
+    highlights: List[str] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+
+
+class KeywordAnalysisResponse(BaseModel):
+    """Keyword analysis results."""
+    total_keywords: int = Field(alias="totalKeywords")
+    technical_keywords: List[str] = Field(alias="technicalKeywords", default_factory=list)
+    soft_skill_keywords: List[str] = Field(alias="softSkillKeywords", default_factory=list)
+    action_verbs_used: List[str] = Field(alias="actionVerbsUsed", default_factory=list)
+    missing_common_keywords: List[str] = Field(alias="missingCommonKeywords", default_factory=list)
+    keyword_density: float = Field(alias="keywordDensity")
+
+    class Config:
+        populate_by_name = True
+
+
+class FormatAnalysisResponse(BaseModel):
+    """Format and structure analysis results."""
+    has_clear_sections: bool = Field(alias="hasClearSections")
+    bullet_point_consistency: float = Field(alias="bulletPointConsistency")
+    length_appropriate: bool = Field(alias="lengthAppropriate")
+    estimated_pages: float = Field(alias="estimatedPages")
+    issues: List[str] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+
+
+class ContentQualityResponse(BaseModel):
+    """Content quality metrics."""
+    quantified_achievements: int = Field(alias="quantifiedAchievements")
+    total_bullet_points: int = Field(alias="totalBulletPoints")
+    quantification_rate: float = Field(alias="quantificationRate")
+    average_bullet_length: float = Field(alias="averageBulletLength")
+    action_verb_usage_rate: float = Field(alias="actionVerbUsageRate")
+    filler_word_count: int = Field(alias="fillerWordCount")
+    issues: List[str] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+
+
+class ATSScoreResponse(BaseModel):
+    """Complete ATS score analysis response."""
+    success: bool
+    overall_score: int = Field(..., alias="overallScore", ge=0, le=100)
+    grade: str
+    section_scores: List[SectionScoreResponse] = Field(alias="sectionScores")
+    keyword_analysis: KeywordAnalysisResponse = Field(alias="keywordAnalysis")
+    format_analysis: FormatAnalysisResponse = Field(alias="formatAnalysis")
+    content_quality: ContentQualityResponse = Field(alias="contentQuality")
+    top_issues: List[str] = Field(alias="topIssues", default_factory=list)
+    top_suggestions: List[str] = Field(alias="topSuggestions", default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    job_match_score: Optional[int] = Field(None, alias="jobMatchScore")
+    matched_keywords: List[str] = Field(alias="matchedKeywords", default_factory=list)
+    missing_keywords: List[str] = Field(alias="missingKeywords", default_factory=list)
+    analysis_time_ms: Optional[float] = Field(None, alias="analysisTimeMs")
+
     class Config:
         populate_by_name = True
 
