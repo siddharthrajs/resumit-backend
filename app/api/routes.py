@@ -3,7 +3,6 @@ API Routes for RenderCV Backend.
 
 Provides endpoints for:
 - Rendering resumes to PDF
-- Generating SVG previews for real-time updates
 - Listing available themes
 - Health checks
 """
@@ -12,14 +11,13 @@ from datetime import datetime
 from typing import Optional
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Response, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 import io
 
 from app.models.resume import (
     ResumeData,
     RenderRequest,
-    RenderResponse,
     TemplateInfo,
     HealthResponse,
     ATSScoreRequest,
@@ -57,41 +55,6 @@ async def health_check():
         timestamp=datetime.utcnow(),
         rendercvAvailable=rendercv_available
     )
-
-
-@router.post("/render/svg", tags=["Render"])
-async def render_svg(request: RenderRequest):
-    """
-    Render resume to SVG for real-time preview.
-    
-    This endpoint is optimized for speed to enable live preview updates.
-    Returns an SVG string that can be directly embedded in the frontend.
-    
-    Request body:
-    - resumeData: The resume data matching the frontend format
-    - theme: Theme to use (classic, sb2nov, moderncv, engineeringresumes, engineeringclassic)
-
-    Returns:
-    - success: Whether rendering succeeded
-    - svgData: The SVG string
-    - renderTimeMs: Time taken to render in milliseconds
-    """
-    try:
-        svg_data, render_time = await rendercv_service.render_svg(
-            request.resume_data,
-            request.theme,
-            page_size=request.page_size
-        )
-        
-        return RenderResponse(
-            success=True,
-            message="SVG rendered successfully",
-            svgData=svg_data,
-            renderTimeMs=render_time
-        )
-    except Exception as e:
-        logger.error(f"SVG render failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/render/pdf", tags=["Render"])
@@ -463,4 +426,3 @@ async def analyze_ats_score(request: ATSScoreRequest):
     except Exception as e:
         logger.error(f"ATS analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

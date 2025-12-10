@@ -2,7 +2,7 @@
 RenderCV Backend - Main FastAPI Application
 
 A high-performance API for generating professional resumes using RenderCV.
-Supports real-time SVG preview and PDF generation with multiple themes.
+Supports PDF generation with multiple themes.
 """
 import logging
 from contextlib import asynccontextmanager
@@ -60,16 +60,17 @@ A high-performance API for generating professional resumes using the RenderCV en
 
 ### Features
 
-- **Real-time SVG Preview**: Generate SVG previews for instant feedback
 - **PDF Generation**: Create high-quality PDFs using multiple professional themes
+- **PNG Thumbnails**: Export individual pages as PNGs for thumbnails or sharing
 - **Multiple Themes**: Classic, SB2Nov, ModernCV, and Engineering Resumes
-- **Format Conversion**: Export to PDF, SVG, or PNG formats
+- **Format Conversion**: Export to PDF or PNG formats
 
 ### Quick Start
 
-1. Send your resume data to `/api/render/svg` for a preview
+1. Send your resume data to `/api/render/pdf/preview` to get a PDF preview
 2. Use `/api/render/pdf` to generate the final PDF
-3. Check available themes at `/api/templates`
+3. Generate PNG thumbnails with `/api/render/png`
+4. Check available themes at `/api/templates`
 
 ### Data Format
 
@@ -143,4 +144,3 @@ if __name__ == "__main__":
         reload=settings.debug,
         log_level="debug" if settings.debug else "info"
     )
-

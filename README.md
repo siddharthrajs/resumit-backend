@@ -1,13 +1,12 @@
 # RenderCV Backend
 
-A high-performance FastAPI backend for generating professional resumes using the [RenderCV](https://docs.rendercv.com/) engine. Designed for real-time SVG preview and PDF generation with multiple professional themes.
+A high-performance FastAPI backend for generating professional resumes using the [RenderCV](https://docs.rendercv.com/) engine. Designed for fast PDF generation with multiple professional themes.
 
 ## Features
 
-- **Real-time SVG Preview**: Generate SVG previews instantly for live editor updates
 - **PDF Generation**: Create high-quality PDFs using RenderCV's Typst-based engine
-- **Multiple Themes**: Support for Classic, SB2Nov, ModernCV, and Engineering Resumes themes
 - **PNG Export**: Generate PNG images for thumbnails or social sharing
+- **Multiple Themes**: Support for Classic, SB2Nov, ModernCV, and Engineering Resumes themes
 - **Format Conversion**: Convert frontend resume data to RenderCV YAML format
 - **Docker Ready**: Optimized Dockerfile for Coolify deployment
 - **CORS Configured**: Ready for frontend integration
@@ -56,42 +55,11 @@ GET /api/health
 ```
 Returns service status and RenderCV availability.
 
-### Render SVG (Real-time Preview)
+### Render PDF Preview
 ```
-POST /api/render/svg
+POST /api/render/pdf/preview
 ```
-Generate SVG preview from resume data. Optimized for real-time updates.
-
-**Request Body:**
-```json
-{
-  "resumeData": {
-    "personalInfo": {
-      "name": "John Doe",
-      "title": "Software Engineer",
-      "email": "john@example.com",
-      "phone": "+1 (555) 123-4567",
-      "location": "San Francisco, CA"
-    },
-    "summary": "Experienced software engineer...",
-    "experience": [...],
-    "education": [...],
-    "skills": [...],
-    "projects": [...]
-  },
-  "theme": "classic"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "SVG rendered successfully",
-  "svgData": "<svg>...</svg>",
-  "renderTimeMs": 1234.56
-}
-```
+Generate PDF bytes for inline preview in the editor.
 
 ### Render PDF
 ```
@@ -214,28 +182,28 @@ import { useState, useCallback } from 'react';
 const API_URL = process.env.NEXT_PUBLIC_RENDERCV_API_URL || 'http://localhost:8000';
 
 export function useRenderCV() {
-  const [svg, setSvg] = useState<string>('');
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const renderSvg = useCallback(async (resumeData: ResumeData, theme = 'classic') => {
+  const renderPdfPreview = useCallback(async (resumeData: ResumeData, theme = 'classic') => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/api/render/svg`, {
+      const response = await fetch(`${API_URL}/api/render/pdf/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeData, theme }),
       });
       
-      const data = await response.json();
-      
-      if (data.success) {
-        setSvg(data.svgData);
-      } else {
-        setError(data.message);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || `HTTP ${response.status}`);
       }
+
+      const buffer = await response.arrayBuffer();
+      setPdfData(buffer);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Render failed');
     } finally {
@@ -259,7 +227,7 @@ export function useRenderCV() {
     URL.revokeObjectURL(url);
   }, []);
 
-  return { svg, isLoading, error, renderSvg, downloadPdf };
+  return { pdfData, isLoading, error, renderPdfPreview, downloadPdf };
 }
 ```
 
