@@ -19,9 +19,9 @@ import re
 import logging
 from dataclasses import dataclass, field
 from typing import Optional
-from collections import Counter
 
 from app.models.resume import ResumeData
+from app.services.nlp_utils import NLPProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,7 @@ class ATSScorer:
         self.email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
         self.phone_pattern = re.compile(r'[\d\-\(\)\+\s]{10,}')
         self.url_pattern = re.compile(r'https?://[^\s]+|www\.[^\s]+')
+        self.nlp = NLPProcessor()
 
     def analyze(
         self,
@@ -789,12 +790,9 @@ class ATSScorer:
 
     def _analyze_keywords(self, resume: ResumeData) -> KeywordAnalysis:
         """Extract and analyze keywords from resume."""
-        # Collect all text
-        all_text = self._get_all_resume_text(resume).lower()
-        words = re.findall(r'\b[a-z]+\b', all_text)
-
-        # Count words
-        word_counts = Counter(words)
+        all_text = self._get_all_resume_text(resume)
+        doc = self.nlp.process(all_text)
+        terms = doc.all_terms()
 
         # Identify technical keywords
         tech_patterns = [
@@ -806,7 +804,7 @@ class ATSScorer:
             'learning', 'data', 'analytics', 'tableau', 'excel', 'powerbi'
         ]
 
-        technical_keywords = [kw for kw in tech_patterns if kw in word_counts]
+        technical_keywords = [kw for kw in tech_patterns if kw in terms]
 
         # Identify soft skill keywords
         soft_patterns = [
@@ -815,22 +813,21 @@ class ATSScorer:
             'negotiation', 'presentation', 'organization', 'adaptability', 'creativity'
         ]
 
-        soft_skill_keywords = [kw for kw in soft_patterns if kw in word_counts]
+        soft_skill_keywords = [kw for kw in soft_patterns if kw in terms]
 
         # Find action verbs used
-        action_verbs_used = [v for v in ALL_ACTION_VERBS if v in word_counts]
+        action_verbs_used = [v for v in ALL_ACTION_VERBS if v in doc.lemmas]
 
         # Common keywords that might be missing
         common_missing = []
         important_keywords = ['results', 'team', 'project', 'business', 'customer', 'client']
         for kw in important_keywords:
-            if kw not in word_counts:
+            if kw not in terms:
                 common_missing.append(kw)
 
-        # Calculate keyword density
-        total_words = len(words)
-        keyword_count = len(technical_keywords) + len(soft_skill_keywords)
-        keyword_density = (keyword_count / total_words * 100) if total_words > 0 else 0
+        total_tokens = len(doc.tokens)
+        keyword_count = len(set(technical_keywords + soft_skill_keywords + action_verbs_used))
+        keyword_density = (keyword_count / total_tokens * 100) if total_tokens > 0 else 0
 
         return KeywordAnalysis(
             total_keywords=keyword_count,
@@ -967,39 +964,34 @@ class ATSScorer:
         Returns:
             Tuple of (match_score, matched_keywords, missing_keywords)
         """
-        # Extract keywords from job description
-        jd_lower = job_description.lower()
-        jd_words = set(re.findall(r'\b[a-z]{3,}\b', jd_lower))
+        resume_text = self._get_all_resume_text(resume)
+        resume_doc = self.nlp.process(resume_text)
+        jd_doc = self.nlp.process(job_description)
 
-        # Remove common words
-        stopwords = {
-            'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had',
-            'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'were', 'will',
-            'with', 'this', 'that', 'from', 'they', 'what', 'about', 'which', 'when',
-            'make', 'like', 'time', 'very', 'just', 'know', 'take', 'into', 'year',
-            'your', 'good', 'some', 'them', 'would', 'there', 'their', 'should',
-            'work', 'also', 'more', 'other', 'than', 'then', 'these', 'could'
-        }
-        jd_keywords = jd_words - stopwords
+        resume_terms = self.nlp.filter_signal_terms(resume_doc.all_terms())
+        jd_terms = self.nlp.filter_signal_terms(jd_doc.all_terms())
 
-        # Get resume text
-        resume_text = self._get_all_resume_text(resume).lower()
-        resume_words = set(re.findall(r'\b[a-z]{3,}\b', resume_text))
+        weights = self.nlp.importance_weights(job_description, jd_doc.lemmas)
+        total_weight = sum(weights.get(t, 1.0) for t in jd_terms) or 1.0
+        matched_weight = sum(weights.get(t, 1.0) for t in jd_terms if t in resume_terms)
+        coverage = matched_weight / total_weight
 
-        # Find matches
-        matched = list(jd_keywords & resume_words)
-        missing = list(jd_keywords - resume_words)
+        # Phrase coverage gives extra credit
+        phrase_matches = [p for p in jd_doc.phrases if p in resume_terms]
+        phrase_bonus = min(0.2, 0.05 * len(phrase_matches))
 
-        # Calculate match score
-        if len(jd_keywords) > 0:
-            match_rate = len(matched) / len(jd_keywords)
-            match_score = min(100, int(match_rate * 120))  # Slight boost for partial matches
-        else:
-            match_score = 50
+        cosine = self.nlp.cosine_similarity(resume_doc.vector, jd_doc.vector)
 
-        # Sort by likely importance (longer words often more specific)
-        matched.sort(key=len, reverse=True)
-        missing.sort(key=len, reverse=True)
+        raw_score = (coverage * 0.6) + (cosine * 0.3) + phrase_bonus
+        match_score = int(max(0, min(100, raw_score * 100)))
+
+        # Determine matched/missing keywords by weight importance
+        unique_jd_terms = list(dict.fromkeys(list(jd_terms) + jd_doc.phrases))
+        matched = [t for t in unique_jd_terms if t in resume_terms]
+        missing = [t for t in unique_jd_terms if t not in resume_terms]
+
+        matched.sort(key=lambda t: weights.get(t, 1.0), reverse=True)
+        missing.sort(key=lambda t: weights.get(t, 1.0), reverse=True)
 
         return match_score, matched[:20], missing[:15]
 
