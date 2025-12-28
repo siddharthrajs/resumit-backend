@@ -45,7 +45,10 @@ class Settings(BaseSettings):
     # Redis Cache
     redis_url: str | None = None
     redis_tls: bool = False
-    
+
+    # Gemini API for resume parsing
+    gemini_api_key: str | None = None
+
     class Config:
         env_prefix = "RENDERCV_"
         env_file = ".env"

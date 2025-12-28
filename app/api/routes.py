@@ -11,9 +11,12 @@ from datetime import datetime
 from typing import Optional
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, File
 from fastapi.responses import StreamingResponse
 import io
+
+from app.services.text_extractor import extract_text_from_pdf
+from app.services.resume_parser import parse_resume_with_llm
 
 from app.models.resume import (
     ResumeData,
@@ -426,3 +429,55 @@ async def analyze_ats_score(request: ATSScoreRequest):
     except Exception as e:
         logger.error(f"ATS analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/extract/text", tags=["Utilities"])
+async def extract_text(file: UploadFile = File(...)):
+    """
+    Extract text from an uploaded PDF file.
+    """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    pdf_bytes = await file.read()
+    text = extract_text_from_pdf(pdf_bytes)
+    return {"text": text}
+
+
+@router.post("/parse/resume", tags=["Resume Parsing"])
+async def parse_resume(file: UploadFile = File(...)):
+    """
+    Parse an uploaded resume PDF and extract structured data using AI.
+
+    Returns structured resume data that can be used directly in the editor.
+    """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    try:
+        # Step 1: Extract text from PDF
+        pdf_bytes = await file.read()
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+
+        if not extracted_text or len(extracted_text.strip()) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract sufficient text from the PDF"
+            )
+
+        # Step 2: Parse with LLM
+        resume_data = parse_resume_with_llm(extracted_text)
+
+        # Return as camelCase for frontend
+        return {
+            "success": True,
+            "data": resume_data.model_dump(by_alias=True, exclude_none=True)
+        }
+
+    except ValueError as e:
+        logger.error(f"Resume parsing failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        logger.error(f"Resume parsing error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to parse resume: {str(e)}")

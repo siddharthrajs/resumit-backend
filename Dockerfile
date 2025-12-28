@@ -8,6 +8,9 @@ FROM python:3.11-slim-bookworm AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # For poppler (pdf2image)
     poppler-utils \
+    # For Tesseract OCR (resume text extraction)
+    tesseract-ocr \
+    tesseract-ocr-eng \
     # For CairoSVG
     libcairo2 \
     libcairo2-dev \
