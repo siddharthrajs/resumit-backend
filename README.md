@@ -1,15 +1,31 @@
 # RenderCV Backend
 
-A high-performance FastAPI backend for generating professional resumes using the [RenderCV](https://docs.rendercv.com/) engine. Designed for fast PDF generation with multiple professional themes.
+A high-performance FastAPI backend for generating professional resumes using the [RenderCV](https://docs.rendercv.com/) engine. Features AI-powered resume parsing, ATS scoring, and multiple professional themes.
+
+<!-- Add your API documentation screenshot here -->
+![API Documentation](./docs/api-screenshot.png)
+<!-- Replace with your actual screenshot path -->
 
 ## Features
 
-- **PDF Generation**: Create high-quality PDFs using RenderCV's Typst-based engine
-- **PNG Export**: Generate PNG images for thumbnails or social sharing
-- **Multiple Themes**: Support for Classic, SB2Nov, ModernCV, and Engineering Resumes themes
-- **Format Conversion**: Convert frontend resume data to RenderCV YAML format
-- **Docker Ready**: Optimized Dockerfile for Coolify deployment
-- **CORS Configured**: Ready for frontend integration
+- **PDF Generation** — High-quality PDFs using RenderCV's Typst-based engine
+- **PNG Export** — Generate images for thumbnails or social sharing
+- **Multiple Themes** — Classic, SB2Nov, ModernCV, and Engineering Resumes
+- **AI Resume Parsing** — Extract structured data from PDF resumes using Google Gemini
+- **ATS Score Analysis** — Comprehensive resume scoring based on real ATS systems
+- **Format Conversion** — Convert frontend resume data to RenderCV YAML format
+- **Docker Ready** — Optimized Dockerfile for Coolify/production deployment
+- **Caching** — In-memory caching with optional Redis support
+
+## Tech Stack
+
+- **Framework:** [FastAPI](https://fastapi.tiangolo.com/) with async support
+- **Resume Engine:** [RenderCV](https://docs.rendercv.com/) with Typst
+- **Validation:** [Pydantic 2.x](https://docs.pydantic.dev/)
+- **AI/LLM:** [Google Gemini](https://ai.google.dev/) for resume parsing
+- **PDF Processing:** PyMuPDF, pdfplumber, pdf2image
+- **OCR:** Tesseract (pytesseract)
+- **Caching:** cachetools, Redis (optional)
 
 ## Quick Start
 
@@ -27,12 +43,19 @@ A high-performance FastAPI backend for generating professional resumes using the
    pip install -r requirements.txt
    ```
 
-3. **Run the development server:**
+3. **Set up environment variables:**
    ```bash
-   uvicorn app.main:app --reload --port 8000
+   cp .env.example .env
+   # Edit .env with your configuration
    ```
 
-4. **Open the API docs:**
+4. **Run the development server:**
+   ```bash
+   python run.py
+   # Or: uvicorn app.main:app --reload --port 8000
+   ```
+
+5. **Open the API docs:**
    - Swagger UI: http://localhost:8000/docs
    - ReDoc: http://localhost:8000/redoc
 
@@ -67,8 +90,9 @@ POST /api/render/pdf?download=false
 ```
 Generate PDF from resume data.
 
-Query Parameters:
-- `download`: If `true`, returns PDF as file download
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `download` | bool | false | Return as file download |
 
 ### Render PNG
 ```
@@ -76,10 +100,11 @@ POST /api/render/png?page=1&dpi=150&download=false
 ```
 Generate PNG image from resume data.
 
-Query Parameters:
-- `page`: Page number (default: 1)
-- `dpi`: Resolution 72-300 (default: 150)
-- `download`: If `true`, returns PNG as file download
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | 1 | Page number to render |
+| `dpi` | int | 150 | Resolution (72-300) |
+| `download` | bool | false | Return as file download |
 
 ### List Templates
 ```
@@ -105,6 +130,67 @@ POST /api/validate
 ```
 Validate resume data and return warnings/suggestions.
 
+### ATS Score Analysis
+```
+POST /api/ats/analyze
+```
+Comprehensive ATS (Applicant Tracking System) analysis including:
+- Section completeness and quality scoring
+- Keyword optimization analysis
+- Format and structure assessment
+- Content quality metrics (action verbs, quantification)
+- Optional job description matching
+
+**Request Body:**
+```json
+{
+  "resumeData": { ... },
+  "jobDescription": "Optional job posting text for matching"
+}
+```
+
+**Response includes:**
+- `overallScore`: 0-100 score
+- `grade`: Letter grade (A+, A, B+, etc.)
+- `sectionScores`: Detailed breakdown by section
+- `keywordAnalysis`: Technical and soft skill keywords
+- `formatAnalysis`: Structure assessment
+- `contentQuality`: Bullet metrics, quantification rate
+- `topIssues`: Priority issues to fix
+- `topSuggestions`: Actionable improvements
+- `strengths`: What the resume does well
+- `jobMatchScore`: Match percentage (if JD provided)
+- `matchedKeywords` / `missingKeywords`: Keyword comparison
+
+### Parse Resume (AI)
+```
+POST /api/parse/resume
+```
+Upload a PDF resume and extract structured data using Google Gemini AI.
+
+**Request:** `multipart/form-data` with `file` field (PDF)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "personalInfo": { ... },
+    "summary": "...",
+    "experience": [ ... ],
+    "education": [ ... ],
+    "skills": [ ... ],
+    "projects": [ ... ]
+  }
+}
+```
+
+### Extract Text
+```
+POST /api/extract/text
+```
+Extract raw text from an uploaded PDF file.
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -118,6 +204,47 @@ Validate resume data and return warnings/suggestions.
 | `RENDERCV_DEFAULT_THEME` | classic | Default resume theme |
 | `RENDERCV_OUTPUT_DIR` | /tmp/rendercv_output | Temporary output directory |
 | `RENDERCV_CLEANUP_AFTER_RENDER` | true | Clean up temp files after render |
+| `RENDERCV_GEMINI_API_KEY` | — | Google Gemini API key (required for AI parsing) |
+
+## Project Structure
+
+```
+rendercv-backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI application entry
+│   ├── config.py               # Configuration settings
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── routes.py           # API endpoints
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── resume.py           # Pydantic models
+│   └── services/
+│       ├── __init__.py
+│       ├── rendercv_service.py # RenderCV integration
+│       ├── converter.py        # Data conversion logic
+│       ├── ats_scorer.py       # ATS scoring engine
+│       ├── resume_parser.py    # AI resume parsing (Gemini)
+│       ├── text_extractor.py   # PDF text extraction
+│       ├── nlp_utils.py        # NLP utilities for ATS
+│       └── cache.py            # Caching layer
+├── Dockerfile
+├── docker-compose.yml
+├── coolify.yaml                # Coolify deployment config
+├── requirements.txt
+├── pyproject.toml
+└── README.md
+```
+
+## Available Themes
+
+| Theme | Description |
+|-------|-------------|
+| `classic` | Clean, professional layout with traditional feel |
+| `sb2nov` | Modern, minimalist design for tech roles |
+| `moderncv` | Contemporary design with color accents |
+| `engineeringresumes` | Optimized for technical/engineering roles |
 
 ## Deployment with Coolify
 
@@ -143,6 +270,7 @@ In your Coolify dashboard:
 ```
 RENDERCV_CORS_ORIGINS=["https://your-frontend-domain.com"]
 RENDERCV_DEBUG=false
+RENDERCV_GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ### 3. Configure Networking
@@ -160,16 +288,7 @@ Coolify will use the configured healthcheck:
 
 ### 5. Deploy
 
-Click "Deploy" and wait for the build to complete. The API will be available at your configured domain.
-
-## Available Themes
-
-| Theme | Description |
-|-------|-------------|
-| `classic` | Clean, professional layout with traditional feel |
-| `sb2nov` | Modern, minimalist design for tech roles |
-| `moderncv` | Contemporary design with color accents |
-| `engineeringresumes` | Optimized for technical roles |
+Click "Deploy" and wait for the build to complete.
 
 ## Frontend Integration
 
@@ -177,86 +296,49 @@ Click "Deploy" and wait for the build to complete. The API will be available at 
 
 ```typescript
 // hooks/use-rendercv.ts
-import { useState, useCallback } from 'react';
-
 const API_URL = process.env.NEXT_PUBLIC_RENDERCV_API_URL || 'http://localhost:8000';
 
 export function useRenderCV() {
-  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const renderPdfPreview = useCallback(async (resumeData: ResumeData, theme = 'classic') => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`${API_URL}/api/render/pdf/preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeData, theme }),
-      });
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || `HTTP ${response.status}`);
-      }
-
-      const buffer = await response.arrayBuffer();
-      setPdfData(buffer);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Render failed');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const downloadPdf = useCallback(async (resumeData: ResumeData, theme = 'classic') => {
-    const response = await fetch(`${API_URL}/api/render/pdf?download=true`, {
+  const renderPdfPreview = async (resumeData: ResumeData, theme = 'classic') => {
+    const response = await fetch(`${API_URL}/api/render/pdf/preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resumeData, theme }),
     });
-    
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${resumeData.personalInfo.name}_Resume.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, []);
 
-  return { pdfData, isLoading, error, renderPdfPreview, downloadPdf };
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.arrayBuffer();
+  };
+
+  const analyzeATS = async (resumeData: ResumeData, jobDescription?: string) => {
+    const response = await fetch(`${API_URL}/api/ats/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resumeData, jobDescription }),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  };
+
+  const parseResume = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_URL}/api/parse/resume`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  };
+
+  return { renderPdfPreview, analyzeATS, parseResume };
 }
 ```
 
 ## Development
-
-### Project Structure
-
-```
-rendercv-backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI application
-│   ├── config.py            # Configuration settings
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes.py        # API endpoints
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── resume.py        # Pydantic models
-│   └── services/
-│       ├── __init__.py
-│       ├── converter.py     # Data conversion logic
-│       └── rendercv_service.py  # RenderCV integration
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-├── pyproject.toml
-└── README.md
-```
 
 ### Running Tests
 
@@ -267,8 +349,14 @@ pytest tests/ -v
 ### Code Formatting
 
 ```bash
-black app/
+black app/ --line-length 100
 ruff check app/ --fix
+```
+
+### Type Checking
+
+```bash
+mypy app/
 ```
 
 ## License
@@ -279,6 +367,5 @@ MIT License - See LICENSE file for details.
 
 - [RenderCV Documentation](https://docs.rendercv.com/)
 - [RenderCV GitHub](https://github.com/rendercv/rendercv)
-- [Typst](https://typst.app/) - The typesetting system used by RenderCV
-
-# resumit-backend
+- [Typst](https://typst.app/) — The typesetting system used by RenderCV
+- [Google Gemini API](https://ai.google.dev/) — AI model for resume parsing
