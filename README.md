@@ -3,7 +3,7 @@
 A high-performance FastAPI backend for generating professional resumes using the [RenderCV](https://docs.rendercv.com/) engine. Features AI-powered resume parsing, ATS scoring, and multiple professional themes.
 
 <!-- Add your API documentation screenshot here -->
-![API Documentation](./docs/api-screenshot.png)
+![API Documentation](./docs/screenshot.png)
 <!-- Replace with your actual screenshot path -->
 
 ## Features
