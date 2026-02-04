@@ -69,7 +69,7 @@ class ParsedResume(BaseModel):
     projects: List[ParsedProject] = []
 
 
-PARSE_PROMPT = """You are a professional resume parser. Extract structured information from the resume text and return it as JSON. For all null values just leave them blank. Donot use null for any field.
+PARSE_PROMPT = """You are a professional resume parser. Extract structured information from the resume text and return it as JSON. For all null values just leave them blank. Do not use null keyword as a value for any field. Just use "".
 
 ## CRITICAL DATE FORMAT RULES (MUST FOLLOW EXACTLY):
 All dates MUST be in one of these formats ONLY:
